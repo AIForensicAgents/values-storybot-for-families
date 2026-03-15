@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Values Storybot for Families</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/marked@11.1.1/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { font-family: 'Nunito', sans-serif; -webkit-tap-highlight-color: transparent; }
+body { background: linear-gradient(135deg, #FFF7ED 0%, #FEF3C7 50%, #ECFDF5 100%); min-height: 100vh; }
+.story-card { background: linear-gradient(145deg, #FFFBEB, #FFF7ED); }
+.glow-btn { box-shadow: 0 4px 20px rgba(251, 146, 60, 0.4); transition: all 0.2s; }
+.glow-btn:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(251, 146, 60, 0.3); }
+.fade-in { animation: fadeIn 0.5s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse-dot { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+.typing-dot { width: 8px; height: 8px; border-radius: 50%; background: #F97316; display: inline-block; animation: pulse-dot 1.4s infinite ease-in-out both; }
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+.tab-active { background: #F97316; color: white; box-shadow: 0 2px 8px rgba(249,115,22,0.3); }
+.tab-inactive { background: white; color: #92400E; }
+.value-chip { transition: all 0.15s; }
+.value-chip.selected { background: #F97316; color: white; border-color: #F97316; }
+.journal-entry { border-left: 4px solid #F97316; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #FDBA74; border-radius: 4px; }
+.story-text p { margin-bottom: 0.75rem; line-height: 1.8; }
+.story-text strong { color: #9A3412; }
+.story-text em { color: #B45309; }
+</style>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        warmOrange: { 50: '#FFF7ED', 100: '#FFEDD5', 200: '#FED7AA', 300: '#FDBA74', 400: '#FB923C', 500: '#F97316', 600: '#EA580C', 700: '#C2410C', 800: '#9A3412', 900: '#7C2D12' },
+        sage: { 50: '#F0FDF4', 100: '#DCFCE7', 200: '#BBF7D0', 300: '#86EFAC', 400: '#4ADE80', 500: '#22C55E' }
+      }
+    }
+  }
+}
+</script>
+</head>
+<body class="pb-20">
+
+<div id="app" class="max-w-lg mx-auto px-4">
+  <!-- Header -->
+  <header class="pt-6 pb-4 text-center">
+    <div class="text-3xl mb-1">📖✨</div>
+    <h1 class="text-2xl font-extrabold text-warmOrange-800 tracking-tight">Values Storybot</h1>
+    <p class="text-sm text-warmOrange-600 font-semibold">for Families</p>
+  </header>
+
+  <!-- Tab Navigation -->
+  <nav class="flex gap-2 mb-5 bg-white/50 rounded-2xl p-1.5" id="tabNav">
+    <button onclick="switchTab('home')" data-tab="home" class="flex-1 py-2.5 rounded-xl text-sm font-bold tab-active transition-all">🏠 Home</button>
+    <button onclick="switchTab('stories')" data-tab="stories" class="flex-1 py-2.5 rounded-xl text-sm font-bold tab-inactive transition-all">📚 Stories</button>
+    <button onclick="switchTab('journal')" data-tab="journal" class="flex-1 py-2.5 rounded-xl text-sm font-bold tab-inactive transition-all">📝 Journal</button>
+    <button onclick="switchTab('profile')" data-tab="profile" class="flex-1 py-2.5 rounded-xl text-sm font-bold tab-inactive transition-all">👨‍👩‍👧 Family</button>
+  </nav>
+
+  <!-- HOME TAB -->
+  <div id="tab-home" class="tab-content fade-in">
+    <!-- Onboarding (if no profile) -->
+    <div id="onboarding" class="hidden">
+      <div class="bg-white rounded-3xl p-6 shadow-lg shadow-orange-100 mb-4">
+        <h2 class="text-xl font-extrabold text-warmOrange-800 mb-2">Welcome, Storytelling Family! 🎉</h2>
+        <p class="text-warmOrange-700 text-sm mb-4">Let's set up your family profile so our Storybot can create personalized adventures that help explore important values together.</p>
+        <button onclick="switchTab('profile')" class="w-full py-3.5 bg-warmOrange-500 text-white rounded-2xl font-bold text-lg glow-btn">Get Started →</button>
+      </div>
+    </div>
+
+    <!-- Main Home (if profile exists) -->
+    <div id="homeMain" class="hidden">
+      <!-- Family greeting -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mb-4">
+        <p class="text-lg font-bold text-warmOrange-800" id="greetingText">Hello, Family! 👋</p>
+        <p class="text-sm text-warmOrange-600 mt-1" id="streakText">Keep the stories going!</p>
+      </div>
+
+      <!-- New Story Creator -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mb-4">
+        <h3 class="font-extrabold text-warmOrange-800 text-lg mb-3">🌟 Create a New Story</h3>
+        
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Choose a value to explore:</label>
+        <div class="flex flex-wrap gap-2 mb-4" id="valueChips"></div>
+
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Story setting (optional):</label>
+        <input type="text" id="storySetting" placeholder="e.g., at school, in a magical forest, at grandma's house..." class="w-full border-2 border-warmOrange-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-warmOrange-400 mb-4" />
+
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Special situation to weave in (optional):</label>
+        <input type="text" id="storySituation" placeholder="e.g., a new kid at school, sharing toys, telling the truth..." class="w-full border-2 border-warmOrange-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-warmOrange-400 mb-4" />
+
+        <button onclick="generateStory()" id="generateBtn" class="w-full py-4 bg-warmOrange-500 text-white rounded-2xl font-bold text-lg glow-btn flex items-center justify-center gap-2">
+          <span>✨ Generate Story</span>
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div id="storyLoading" class="hidden bg-white rounded-3xl p-8 shadow-lg shadow-orange-100 mb-4 text-center">
+        <div class="mb-4">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+        <p class="text-warmOrange-700 font-bold">Crafting your family's story...</p>
+        <p class="text-warmOrange-500 text-sm mt-1">This might take a moment ✨</p>
+      </div>
+
+      <!-- Current Story Display -->
+      <div id="currentStory" class="hidden fade-in">
+        <div class="story-card rounded-3xl p-5 shadow-lg shadow-orange-100 mb-4 border border-warmOrange-200">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-extrabold text-warmOrange-800 text-lg" id="storyTitle"></h3>
+            <span class="text-xs bg-warmOrange-100 text-warmOrange-700 px-2 py-1 rounded-full font-bold" id="storyEpisode"></span>
+          </div>
+          <div class="story-text text-warmOrange-900 text-sm leading-relaxed mb-4" id="storyBody"></div>
+          
+          <!-- Discussion Prompts -->
+          <div class="bg-sage-50 rounded-2xl p-4 mb-3 border border-sage-200">
+            <h4 class="font-bold text-green-800 text-sm mb-2">💬 Let's Talk About It</h4>
+            <div id="discussionPrompts" class="text-green-700 text-sm space-y-2"></div>
+          </div>
+
+          <!-- Family Activity -->
+          <div class="bg-blue-50 rounded-2xl p-4 mb-3 border border-blue-200">
+            <h4 class="font-bold text-blue-800 text-sm mb-2">🎯 Family Activity</h4>
+            <p id="familyActivity" class="text-blue-700 text-sm"></p>
+          </div>
+
+          <div class="flex gap-2 mt-4">
+            <button onclick="continueStory()" class="flex-1 py-3 bg-warmOrange-500 text-white rounded-xl font-bold text-sm glow-btn">Continue Story →</button>
+            <button onclick="saveToJournal()" class="py-3 px-4 bg-warmOrange-100 text-warmOrange-700 rounded-xl font-bold text-sm">📝 Journal</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Topics Covered -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mb-4" id="topicTracker">
+        <h3 class="font-bold text-warmOrange-800 mb-3">🗓️ Values Explored This Month</h3>
+        <div id="topicsList" class="flex flex-wrap gap-2"></div>
+        <p id="noTopics" class="text-warmOrange-400 text-sm hidden">No values explored yet — start your first story! 🌱</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- STORIES TAB -->
+  <div id="tab-stories" class="tab-content hidden">
+    <div class="fade-in">
+      <h2 class="text-xl font-extrabold text-warmOrange-800 mb-4">📚 Story Library</h2>
+      <div id="storyLibrary" class="space-y-3"></div>
+      <p id="noStories" class="text-center text-warmOrange-400 py-8 hidden">No stories yet! Head home to create your first adventure. ✨</p>
+    </div>
+  </div>
+
+  <!-- JOURNAL TAB -->
+  <div id="tab-journal" class="tab-content hidden">
+    <div class="fade-in">
+      <h2 class="text-xl font-extrabold text-warmOrange-800 mb-4">📝 Reflection Journal</h2>
+      
+      <div id="journalEntries" class="space-y-3 mb-4"></div>
+      <p id="noJournal" class="text-center text-warmOrange-400 py-8 hidden">Journal entries will appear here after you read stories and reflect! 🌻</p>
+
+      <!-- New journal entry -->
+      <div id="journalForm" class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 hidden">
+        <h3 class="font-bold text-warmOrange-800 mb-3">✏️ New Reflection</h3>
+        <p class="text-sm text-warmOrange-600 mb-2" id="journalPromptText"></p>
+        <textarea id="journalInput" rows="4" placeholder="What did you think about the story? How did it make you feel?" class="w-full border-2 border-warmOrange-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-warmOrange-400 mb-3"></textarea>
+        <div class="flex gap-2">
+          <button onclick="saveJournalEntry()" class="flex-1 py-3 bg-warmOrange-500 text-white rounded-xl font-bold glow-btn">Save Entry ✨</button>
+          <button onclick="closeJournalForm()" class="py-3 px-4 bg-gray-100 text-gray-600 rounded-xl font-bold">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE TAB -->
+  <div id="tab-profile" class="tab-content hidden">
+    <div class="fade-in">
+      <h2 class="text-xl font-extrabold text-warmOrange-800 mb-4">👨‍👩‍👧 Family Profile</h2>
+      
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mb-4">
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Family Name</label>
+        <input type="text" id="familyName" placeholder="e.g., The Johnson Family" class="w-full border-2 border-warmOrange-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-warmOrange-400 mb-4" />
+
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Children's Names & Ages</label>
+        <div id="childrenList" class="space-y-2 mb-2"></div>
+        <button onclick="addChildField()" class="text-warmOrange-500 font-bold text-sm mb-4">+ Add Child</button>
+
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Your family's interests & hobbies</label>
+        <input type="text" id="familyInterests" placeholder="e.g., hiking, reading, cooking, soccer..." class="w-full border-2 border-warmOrange-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-warmOrange-400 mb-4" />
+
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Cultural or spiritual background (optional)</label>
+        <input type="text" id="familyCulture" placeholder="e.g., Christian, Buddhist, secular humanist..." class="w-full border-2 border-warmOrange-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-warmOrange-400 mb-4" />
+
+        <label class="block text-sm font-bold text-warmOrange-700 mb-2">Language complexity level</label>
+        <select id="complexityLevel" class="w-full border-2 border-warmOrange-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-warmOrange-400 mb-4 bg-white">
+          <option value="simple">🌱 Simple (Ages 5-6)</option>
+          <option value="moderate" selected>🌿 Moderate (Ages 7-9)</option>
+          <option value="advanced">🌳 Advanced (Ages 10-11)</option>
+        </select>
+
+        <button onclick="saveProfile()" class="w-full py-3.5 bg-warmOrange-500 text-white rounded-2xl font-bold text-lg glow-btn">Save Family Profile 💾</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mb-4">
+        <h3 class="font-bold text-warmOrange-800 mb-3">📊 Family Stats</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-warmOrange-50 rounded-xl p-3 text-center">
+            <div class="text-2xl font-extrabold text-warmOrange-600" id="statStories">0</div>
+            <div class="text-xs text-warmOrange-500 font-bold">Stories Read</div>
+          </div>
+          <div class="bg-sage-50 rounded-xl p-3 text-center">
+            <div class="text-2xl font-extrabold text-green-600" id="statValues">0</div>
+            <div class="text-xs text-green-500 font-bold">Values Explored</div>
+          </div>
+          <div class="bg-blue-50 rounded-xl p-3 text-center">
+            <div class="text-2xl font-extrabold text-blue-600" id="statJournals">0</div>
+            <div class="text-xs text-blue-500 font-bold">Journal Entries</div>
+          </div>
+          <div class="bg-purple-50 rounded-xl p-3 text-center">
+            <div class="text-2xl font-extrabold text-purple-600" id="statWeeks">0</div>
+            <div class="text-xs text-purple-500 font-bold">Weeks Active</div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="clearAllData()" class="w-full py-3 bg-red-50 text-red-400 rounded-2xl font-bold text-sm">Reset All Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- Story Reader Modal -->
+<div id="storyModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end justify-center">
+  <div class="bg-white rounded-t-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 fade-in">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-extrabold text-warmOrange-800 text-lg" id="modalTitle"></h3>
+      <button onclick="closeModal()" class="w-10 h-10 rounded-full bg-warmOrange-100 flex items-center justify-center text-warmOrange-600 font-bold">✕</button>
+    </div>
+    <div id="modalBody" class="story-text text-warmOrange-900 text-sm leading-relaxed"></div>
+  </div>
+</div>
+
+<script>
+// Global state
+let appState = {
+  profile: null,
+  stories: [],
+  journals: [],
+  topicsCovered: [],
+  currentStoryArc: null,
+  firstVisit: null
+};
+
+// AI tracking
+let aiTotalInputTokens = 0;
+let aiTotalOutputTokens = 0;
+let aiTotalTime = 0;
+let aiTimeByAlias = {};
+
+const VALUES = [
+  { emoji: '❤️', name: 'Kindness', id: 'kindness' },
+  { emoji: '🤝', name: 'Honesty', id: 'honesty' },
+  { emoji: '💪', name: 'Courage', id: 'courage' },
+  { emoji: '🙏', name: 'Gratitude', id: 'gratitude' },
+  { emoji: '🤗', name: 'Empathy', id: 'empathy' },
+  { emoji: '⚖️', name: 'Fairness', id: 'fairness' },
+  { emoji: '🌍', name: 'Responsibility', id: 'responsibility' },
+  { emoji: '🕊️', name: 'Forgiveness', id: 'forgiveness' },
+  { emoji: '🌱', name: 'Patience', id: 'patience' },
+  { emoji: '🎭', name: 'Respect', id: 'respect' },
+  { emoji: '🤲', name: 'Generosity', id: 'generosity' },
+  { emoji: '🧠', name: 'Self-Control', id: 'self-control' }
+];
+
+let selectedValue = null;
+
+// Load state
+function loadState() {
+  try {
+    const saved = localStorage.getItem('valuesStorybot');
+    if (saved) {
+      appState = JSON.parse(saved);
+    }
+  } catch(e) { console.error('Failed to load state', e); }
+}
+
+function saveState() {
+  localStorage.setItem('valuesStorybot', JSON.stringify(appState));
+}
+
+// AI call helper with retry
+async function callAI(alias, params, retries = 3) {
+  const startTime = Date.now();
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch('https://16504442930.work/run_prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias, params })
+      });
+      const data = await res.json();
+      const elapsed = Date.now() - startTime;
+      aiTotalTime += elapsed;
+      aiTimeByAlias[alias] = (aiTimeByAlias[alias] || 0) + elapsed;
+      if (data.input_tokens) aiTotalInputTokens += data.input_tokens;
+      if (data.output_tokens) aiTotalOutputTokens += data.output_tokens;
+      if (data.error) {
+        if (attempt < retries - 1) continue;
+        // Format error with AI
+        try {
+          const errRes = await callAI('genericAI', {
+            prompt: `Reformat this API error message to be user-friendly and help the user fix it. Include the full original error. Error: ${JSON.stringify(data)}. Return JSON with key "friendlyError" as a string.`
+          }, 1);
+          throw new Error(errRes.friendlyError || JSON.stringify(data));
+        } catch(e2) {
+          throw new Error(`Something went wrong: ${JSON.stringify(data)}`);
+        }
+      }
+      return data;
+    } catch(e) {
+      if (attempt === retries - 1) throw e;
+    }
+  }
+}
+
+// Tab switching
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+  document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+  document.querySelectorAll('#tabNav button').forEach(btn => {
+    if (btn.dataset.tab === tabName) {
+      btn.className = btn.className.replace('tab-inactive', 'tab-active');
+    } else {
+      btn.className = btn.className.replace('tab-active', 'tab-inactive');
+    }
+  });
+
+  if (tabName === 'home') renderHome();
+  if (tabName === 'stories') renderStoryLibrary();
+  if (tabName === 'journal') renderJournal();
+  if (tabName === 'profile') renderProfile();
+}
+
+// Render value chips
+function renderValueChips() {
+  const container = document.getElementById('valueChips');
+  container.innerHTML = VALUES.map(v => `
+    <button onclick="selectValue('${v.id}')" id="chip-${v.id}" 
+      class="value-chip px-3 py-2 rounded-full border-2 border-warmOrange-200 text-sm font-bold text-warmOrange-700 ${selectedValue === v.id ? 'selected' : ''}">
+      ${v.emoji} ${v.name}
+    </button>
+  `).join('');
+}
+
+function selectValue(id) {
+  selectedValue = selectedValue === id ? null : id;
+  renderValueChips();
+}
+
+// Render home
+function renderHome() {
+  if (!appState.profile) {
+    document.getElementById('onboarding').classList.remove('hidden');
+    document.getElementById('homeMain').classList.add('hidden');
+    return;
+  }
+  document.getElementById('onboarding').classList.add('hidden');
+  document.getElementById('homeMain').classList.remove('hidden');
+
+  const familyName = appState.profile.familyName || 'Family';
+  document.getElementById('greetingText').textContent = `Hello, ${familyName}! 👋`;
+  
+  const storyCount = appState.stories.length;
+  if (storyCount === 0) {
+    document.getElementById('streakText').textContent = 'Ready for your first values adventure? 🌟';
+  } else {
+    document.getElementById('streakText').textContent = `${storyCount} stor${storyCount === 1 ? 'y' : 'ies'} created so far! Keep going! 🔥`;
+  }
+
+  renderValueChips();
+  renderTopicTracker();
+}
+
+function renderTopicTracker() {
+  const container = document.getElementById('topicsList');
+  const noTopics = document.getElementById('noTopics');
+  
+  // Get topics from last 30 days
+  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  const recentStories = appState.stories.filter(s => s.createdAt > thirtyDaysAgo);
+  const recentValues = [...new Set(recentStories.map(s => s.value))];
+  
+  if (recentValues.length === 0) {
+    container.innerHTML = '';
+    noTopics.classList.remove('hidden');
+    return;
+  }
+  noTopics.classList.add('hidden');
+  
+  container.innerHTML = recentValues.map(v => {
+    const val = VALUES.find(x => x.id === v);
+    const count = recentStories.filter(s => s.value === v).length;
+    return `<span class="bg-warmOrange-100 text-warmOrange-700 px-3 py-1.5 rounded-full text-xs font-bold">${val ? val.emoji : '📖'} ${val ? val.name : v} (${count})</span>`;
+  }).join('');
+}
+
+// Generate Story
+async function generateStory() {
+  if (!selectedValue) {
+    alert('Please select a value to explore! 🌟');
+    return;
+  }
+
+  const profile = appState.profile;
+  const setting = document.getElementById('storySetting').value.trim();
+  const situation = document.getElementById('storySituation').value.trim();
+  const valueObj = VALUES.find(v => v.id === selectedValue);
+  
+  // Check if continuing an arc
+  const existingArc = appState.stories.filter(s => s.value === selectedValue && s.arcId === appState.currentStoryArc?.arcId);
+  const episodeNum = existingArc.length + 1;
+  const isNewArc = episodeNum === 1 || !appState.currentStoryArc || appState.currentStoryArc.value !== selectedValue;
+  const arcId = isNewArc ? `arc_${Date.now()}` : appState.currentStoryArc.arcId;
+  const actualEpisode = isNewArc ? 1 : episodeNum;
+
+  const childrenDesc = profile.children.map(c => `${c.name} (age ${c.age})`).join(', ');
+  const complexityMap = { simple: 'ages 5-6, very simple vocabulary, short sentences', moderate: 'ages 7-9, moderate vocabulary, medium-length sentences', advanced: 'ages 10-11, richer vocabulary, longer sentences with nuance' };
+  const complexity = complexityMap[profile.complexity] || complexityMap.moderate;
+
+  let previousContext = '';
+  if (!isNewArc && existingArc.length > 0) {
+    const lastEp = existingArc[existingArc.length - 1];
+    previousContext = `This is episode ${actualEpisode} of an ongoing story arc. Previously: "${lastEp.title}" - Brief summary of what happened: The story explored ${valueObj.name} and ended with the characters learning something important. Continue the storyline naturally.`;
+  }
+
+  const prompt = `You are a master children's storyteller specializing in moral development for children. Create a personalized, engaging story for a family.
+
+FAMILY CONTEXT:
+- Family: ${profile.familyName}
+- Children: ${childrenDesc}
+- Interests/hobbies: ${profile.interests || 'general interests'}
+- Cultural background: ${profile.culture || 'not specified'}
+- Language level: ${complexity}
+
+STORY REQUIREMENTS:
+- Core value to explore: ${valueObj.name} (${valueObj.emoji})
+- Setting: ${setting || 'a relatable everyday setting'}
+- Special situation: ${situation || 'create an age-appropriate moral dilemma'}
+- Episode: ${actualEpisode} of a multi-part arc
+${previousContext}
+
+IMPORTANT GUIDELINES:
+- Create child protagonists with names inspired by the family's children
+- Embed a clear but nuanced moral dilemma related to ${valueObj.name}
+- The story should be 300-500 words
+- End with a gentle cliffhanger or reflection moment if it's not the final episode
+- Make it engaging, warm, and age-appropriate
+- Include sensory details and dialogue
+- Don't be preachy - show values through character actions and consequences
+
+Return a JSON object with these exact keys and types:
+- "title": string (a creative, engaging title for this episode)
+- "story": string (the full story text with paragraph breaks using newlines)
+- "discussionPrompts": array of exactly 3 strings (questions to discuss as a family, age-appropriate, open-ended)
+- "familyActivity": string (a practical activity the family can do together this week to practice the value)
+- "moralSummary": string (a brief 1-sentence summary of the moral lesson for parents)
+- "nextEpisodeHook": string (a brief teaser for what could happen next in the story arc)`;
+
+  document.getElementById('generateBtn').classList.add('hidden');
+  document.getElementById('storyLoading').classList.remove('hidden');
+  document.getElementById('currentStory').classList.add('hidden');
+
+  try {
+    const result = await callAI('genericAI', { prompt });
+    
+    const storyData = {
+      id: `story_${Date.now()}`,
+      arcId,
+      episode: actualEpisode,
+      value: selectedValue,
+      title: result.title || 'A Special Story',
+      story: result.story || '',
+      discussionPrompts: result.discussionPrompts || [],
+      familyActivity: result.familyActivity || '',
+      moralSummary: result.moralSummary || '',
+      nextEpisodeHook: result.nextEpisodeHook || '',
+      createdAt: Date.now()
+    };
+
+    appState.stories.push(storyData);
+    appState.currentStoryArc = { arcId, value: selectedValue };
+    saveState();
+
+    displayCurrentStory(storyData);
+  } catch(e) {
+    alert('Oops! ' + e.message);
+  } finally {
+    document.getElementById('generateBtn').classList.remove('hidden');
+    document.getElementById('storyLoading').classList.add('hidden');
+  }
+}
+
+function displayCurrentStory(data) {
+  document.getElementById('currentStory').classList.remove('hidden');
+  document.getElementById('storyTitle').textContent = data.title;
+  document.getElementById('storyEpisode').textContent = `Episode ${data.episode}`;
+  
+  const storyHtml = data.story.split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('');
+  document.getElementById('storyBody').innerHTML = storyHtml;
+  
+  const promptsHtml = data.discussionPrompts.map(p => `<p>• ${p}</p>`).join('');
+  document.getElementById('discussionPrompts').innerHTML = promptsHtml;
+  document.getElementById('familyActivity').textContent = data.familyActivity;
+
+  renderTopicTracker();
+  updateStats();
+
+  document.getElementById('currentStory').scrollIntoView({ behavior: 'smooth' });
+}
+
+function continueStory() {
+  // Keep the same value selected and generate next episode
+  document.getElementById('storySetting').value = '';
+  document.getElementById('storySituation').value = '';
+  document.getElementById('currentStory').classList.add('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(() => generateStory(), 300);
+}
+
+function saveToJournal() {
+  const lastStory = appState.stories[appState.stories.length - 1];
+  if (!lastStory) return;
+  
+  switchTab('journal');
+  setTimeout(() => {
+    const form = document.getElementById('journalForm');
+    form.classList.remove('hidden');
+    document.getElementById('journalPromptText').textContent = 
+      `Reflecting on "${lastStory.title}": ${lastStory.discussionPrompts[0] || 'What did you think about the story?'}`;
+    form.dataset.storyId = lastStory.id;
+    form.scrollIntoView({ behavior: 'smooth' });
+  }, 100);
+}
+
+// Story Library
+function renderStoryLibrary() {
+  const container = document.getElementById('storyLibrary');
+  const noStories = document.getElementById('noStories');
+  
+  if (appState.stories.length === 0) {
+    container.innerHTML = '';
+    noStories.classList.remove('hidden');
+    return;
+  }
+  noStories.classList.add('hidden');
+
+  // Group by arc
+  const arcs = {};
+  appState.stories.forEach(s => {
+    if (!arcs[s.arcId]) arcs[s.arcId] = [];
+    arcs[s.arcId].push(s);
+  });
+
+  container.innerHTML = Object.values(arcs).reverse().map(arcStories => {
+    const val = VALUES.find(v => v.id === arcStories[0].value);
+    return `
+      <div class="bg-white rounded-2xl p-4 shadow-md shadow-orange-50">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-lg">${val ? val.emoji : '📖'}</span>
+          <span class="font-bold text-warmOrange-800 text-sm">${val ? val.name : 'Story'} Arc</span>
+          <span class="text-xs text-warmOrange-400">${arcStories.length} episode${arcStories.length > 1 ? 's' : ''}</span>
+        </div>
+        ${arcStories.map(s => `
+          <button onclick="openStoryModal('${s.id}')" class="w-full text-left py-2 px-3 rounded-xl hover:bg-warmOrange-50 transition-colors flex items-center gap-2">
+            <span class="text-xs bg-warmOrange-100 text-warmOrange-600 px-2 py-0.5 rounded-full font-bold">Ep ${s.episode}</span>
+            <span class="text-sm text-warmOrange-700 font-semibold truncate">${s.title}</span>
+            <span class="text-xs text-warmOrange-400 ml-auto">${new Date(s.createdAt).toLocaleDateString()}</span>
+          </button>
+        `).join('')}
+        <button onclick="continueArc('${arcStories[0].arcId}', '${arcStories[0].value}')" class="mt-2 w-full py-2 bg-warmOrange-50 text-warmOrange-600 rounded-xl font-bold text-xs">Continue this arc →</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function openStoryModal(storyId) {
+  const story = appState.stories.find(s => s.id === storyId);
+  if (!story) return;
+  
+  document.getElementById('modalTitle').textContent = `${story.title} (Ep ${story.episode})`;
+  const bodyHtml = story.story.split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('');
+  const promptsHtml = story.discussionPrompts.map(p => `<p class="text-green-700">💬 ${p}</p>`).join('');
+  
+  document.getElementById('modalBody').innerHTML = `
+    ${bodyHtml}
+    <div class="mt-4 bg-sage-50 rounded-xl p-3 border border-sage-200">
+      <h4 class="font-bold text-green-800 text-sm mb-2">Discussion Prompts</h4>
+      ${promptsHtml}
+    </div>
+    <div class="mt-3 bg-blue-50 rounded-xl p-3 border border-blue-200">
+      <h4 class="font-bold text-blue-800 text-sm mb-1">🎯 Family Activity</h4>
+      <p class="text-blue-700 text-sm">${story.familyActivity}</p>
+    </div>
+  `;
+  
+  document.getElementById('storyModal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('storyModal').classList.add('hidden');
+}
+
+function continueArc(arcId, value) {
+  selectedValue = value;
+  appState.currentStoryArc = { arcId, value };
+  saveState();
+  switchTab('home');
+  renderValueChips();
+}
+
+// Journal
+function renderJournal() {
+  const container = document.getElementById('journalEntries');
+  const noJournal = document.getElementById('noJournal');
+  
+  if (appState.journals.length === 0) {
+    container.innerHTML = '';
+    noJournal.classList.remove('hidden');
+    return;
+  }
+  noJournal.classList.add('hidden');
+  
+  container.innerHTML = appState.journals.slice().reverse().map(j => {
+    const story = appState.stories.find(s => s.id === j.storyId);
+    return `
+      <div class="bg-white rounded-2xl p-4 shadow-md shadow-orange-50 journal-entry">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-bold text-warmOrange-800">${story ? story.title : 'Reflection'}</span>
+          <span class="text-xs text-warmOrange-400">${new Date(j.createdAt).toLocaleDateString()}</span>
+        </div>
+        <p class="text-xs text-warmOrange-500 italic mb-1">${j.prompt}</p>
+        <p class="text-sm text-warmOrange-700">${j.entry}</p>
+      </div>
+    `;
+  }).join('');
+}
+
+function saveJournalEntry() {
+  const input = document.getElementById('journalInput');
+  const form = document.getElementById('journalForm');
+  const entry = input.value.trim();
+  
+  if (!entry) {
+    alert('Please write something first! ✏️');
+    return;
+  }
+
+  appState.journals.push({
+    id: `journal_${Date.now()}`,
+    storyId: form.dataset.storyId || null,
+    prompt: document.getElementById('journalPromptText').textContent,
+    entry,
+    createdAt: Date.now()
+  });
+  saveState();
+  
+  input.value = '';
+  form.classList.add('hidden');
+  renderJournal();
+  updateStats();
+}
+
+function closeJournalForm() {
+  document.getElementById('journalForm').classList.add('hidden');
+  document.getElementById('journalInput').value = '';
+}
+
+// Profile
+function renderProfile() {
+  if (appState.profile) {
+    document.getElementById('familyName').value = appState.profile.familyName || '';
+    document.getElementById('familyInterests').value = appState.profile.interests || '';
+    document.getElementById('familyCulture').value = appState.profile.culture || '';
+    document.getElementById('complexityLevel').value = appState.profile.complexity || 'moderate';
+    
+    const childrenContainer = document.getElementById('childrenList');
+    childrenContainer.innerHTML = '';
+    if (appState.profile.children && appState.profile.children.length > 0) {
+      appState.profile.children.forEach((c, i) => addChildField(c.name, c.age));
+    } else {
+      addChildField();
+    }
+  } else {
+    document.getElementById('childrenList').innerHTML = '';
+    addChildField();
+  }
+  updateStats();
+}
+
+function addChildField(name = '', age = '') {
+  const container = document.getElementById('childrenList');
+  const div = document.createElement('div');
+  div.className = 'flex gap-2 items-center child-row';
+  div.innerHTML = `
+    <input type="text" placeholder="Child's name" value="${name}" class="child-name flex-1 border-2 border-warmOrange-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-warmOrange-400" />
+    <input type="number" placeholder="Age" value="${age}" min="3" max="15" class="child-age w-20 border-2 border-warmOrange-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-warmOrange-400" />
+    <button onclick="this.parentElement.remove()" class="w-10 h-10 rounded-full bg-red-50 text-red-400 font-bold flex items-center justify-center flex-shrink-0">✕</button>
+  `;
+  container.appendChild(div);
+}
+
+function saveProfile() {
+  const familyName = document.getElementById('familyName').value.trim();
+  if (!familyName) {
+    alert('Please enter your family name! 👨‍👩‍👧');
+    return;
+  }
+
+  const children = [];
+  document.querySelectorAll('.child-row').forEach(row => {
+    const name = row.querySelector('.child-name').value.trim();
+    const age = parseInt(row.querySelector('.child-age').value);
+    if (name && age) children.push({ name, age });
+  });
+
+  if (children.length === 0) {
+    alert('Please add at least one child! 🧒');
+    return;
+  }
+
+  appState.profile = {
+    familyName,
+    children,
+    interests: document.getElementById('familyInterests').value.trim(),
+    culture: document.getElementById('familyCulture').value.trim(),
+    complexity: document.getElementById('complexityLevel').value
+  };
+
+  if (!appState.firstVisit) appState.firstVisit = Date.now();
+  
+  saveState();
+  alert('Family profile saved! 🎉 Head home to start creating stories!');
+  switchTab('home');
+}
+
+function updateStats() {
+  document.getElementById('statStories').textContent = appState.stories.length;
+  const uniqueValues = [...new Set(appState.stories.map(s => s.value))];
+  document.getElementById('statValues').textContent = uniqueValues.length;
+  document.getElementById('statJournals').textContent = appState.journals.length;
+  
+  if (appState.firstVisit) {
+    const weeks = Math.max(1, Math.ceil((Date.now() - appState.firstVisit) / (7 * 24 * 60 * 60 * 1000)));
+    document.getElementById('statWeeks').textContent = weeks;
+  }
+}
+
+function clearAllData() {
+  if (confirm('Are you sure you want to reset all data? This cannot be undone! 🗑️')) {
+    localStorage.removeItem('valuesStorybot');
+    appState = { profile: null, stories: [], journals: [], topicsCovered: [], currentStoryArc: null, firstVisit: null };
+    selectedValue = null;
+    switchTab('home');
+  }
+}
+
+// Initialize
+loadState();
+switchTab('home');
+
+// Close modal on backdrop click
+document.getElementById('storyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+</body>
+</html>
